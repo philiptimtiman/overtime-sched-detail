@@ -1,25 +1,22 @@
-// app.js (client-side)
-// Expects a password-only admin flow. The login modal should include an input with id="authPassword"
-// and buttons with ids: authBtn, loginSubmit, closeModal, and a modal container id="authModal".
-// Replace SUPABASE_URL and SUPABASE_ANON_KEY with your values.
-
+// app.js
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
 const SUPABASE_URL = "https://bisvmgjgyvludhqsvvcn.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJpc3ZtZ2pneXZsdWRocXN2dmNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE2OTI1ODMsImV4cCI6MjA4NzI2ODU4M30.eodsmChKwoEiPlNz9d2Ge3lAmO3BWfdKRWVRdgk9Xl8";
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+const TABLE_NAME = "overtime_entries"; // your Supabase table
+
 let allEntries = [];
 let isAdmin = false;
 let sortDirection = { name: "asc", date: "asc" };
 
-// ---------- Admin session functions ----------
+// Admin session functions
 async function checkAdminSession() {
   try {
     const res = await fetch("/api/admin-auth", { method: "GET", credentials: "same-origin" });
-    if (!res.ok) {
-      isAdmin = false;
-    } else {
+    if (!res.ok) { isAdmin = false; }
+    else {
       const json = await res.json();
       isAdmin = !!json.admin;
     }
@@ -72,39 +69,26 @@ async function adminLogout() {
   await loadEntries();
 }
 
-// ---------- UI helpers ----------
+// UI helpers
 function updateUiForAdmin() {
   const form = document.getElementById("entryForm");
   const authBtn = document.getElementById("authBtn");
   if (!form || !authBtn) return;
 
-  if (!isAdmin) {
-    form.style.display = "none";
-    authBtn.textContent = "Admin Login";
-  } else {
-    form.style.display = "flex";
-    authBtn.textContent = "Logout";
-  }
+  form.style.display = isAdmin ? "flex" : "none";
+  authBtn.textContent = isAdmin ? "Logout" : "Admin Login";
   renderEntries(allEntries);
 }
 
-// ---------- Auth modal wiring ----------
+// Modal wiring
 const authBtn = document.getElementById("authBtn");
 const authModal = document.getElementById("authModal");
 const closeModal = document.getElementById("closeModal");
 const loginSubmit = document.getElementById("loginSubmit");
 const authPassword = document.getElementById("authPassword");
 
-function openAuthModal() {
-  if (!authModal) return;
-  authModal.classList.add("open");
-  if (authPassword) authPassword.value = "";
-}
-
-function closeAuthModal() {
-  if (!authModal) return;
-  authModal.classList.remove("open");
-}
+function openAuthModal() { if (!authModal) return; authModal.classList.add("open"); if (authPassword) authPassword.value = ""; }
+function closeAuthModal() { if (!authModal) return; authModal.classList.remove("open"); }
 
 if (authBtn) {
   authBtn.addEventListener("click", async () => {
@@ -119,18 +103,15 @@ if (loginSubmit) {
   loginSubmit.addEventListener("click", async (e) => {
     e.preventDefault();
     const pwd = authPassword?.value ?? "";
-    if (!pwd) {
-      alert("Enter admin password.");
-      return;
-    }
+    if (!pwd) { alert("Enter admin password."); return; }
     await adminLogin(pwd);
   });
 }
 
-// ---------- Data loading ----------
+// Data loading
 async function loadEntries() {
   try {
-    const { data, error } = await supabase.from("overtime_entries").select("*");
+    const { data, error } = await supabase.from(TABLE_NAME).select("*");
     if (error) {
       console.error("Error loading entries:", error);
       allEntries = [];
@@ -146,7 +127,7 @@ async function loadEntries() {
   }
 }
 
-// ---------- Rendering ----------
+// Rendering
 function renderEntries(entries) {
   const tbody = document.getElementById("entries");
   if (!tbody) return;
@@ -166,13 +147,13 @@ function renderEntries(entries) {
     const row = document.createElement("tr");
 
     const idCell = document.createElement("td");
-    idCell.textContent = entry.id ?? "(no id)";
+    idCell.textContent = entry.id ?? "";
 
     const nameCell = document.createElement("td");
-    nameCell.textContent = entry.name ?? "(no name)";
+    nameCell.textContent = entry.name ?? "";
 
     const dateCell = document.createElement("td");
-    dateCell.textContent = entry.date ?? "(no date)";
+    dateCell.textContent = entry.date ?? "";
 
     const notesCell = document.createElement("td");
     notesCell.textContent = entry.notes ?? "";
@@ -185,7 +166,7 @@ function renderEntries(entries) {
       deleteBtn.className = "delete-btn";
       deleteBtn.addEventListener("click", async () => {
         if (!confirm(`Delete entry ID ${entry.id}?`)) return;
-        const { error } = await supabase.from("overtime_entries").delete().eq("id", entry.id);
+        const { error } = await supabase.from(TABLE_NAME).delete().eq("id", entry.id);
         if (error) {
           console.error("Delete error:", error);
           alert("Failed to delete entry: " + (error.message || ""));
@@ -214,7 +195,7 @@ function renderEntries(entries) {
   });
 }
 
-// ---------- Inline edit ----------
+// Inline edit
 async function openEditDialog(entry) {
   const newName = window.prompt("Edit name:", entry.name ?? "");
   if (newName === null) return;
@@ -223,7 +204,7 @@ async function openEditDialog(entry) {
   const newNotes = window.prompt("Edit notes:", entry.notes ?? "");
   if (newNotes === null) return;
 
-  const { error } = await supabase.from("overtime_entries").update({ name: newName, date: newDate, notes: newNotes }).eq("id", entry.id);
+  const { error } = await supabase.from(TABLE_NAME).update({ name: newName, date: newDate, notes: newNotes }).eq("id", entry.id);
   if (error) {
     console.error("Update error:", error);
     alert("Failed to update entry: " + (error.message || ""));
@@ -232,7 +213,7 @@ async function openEditDialog(entry) {
   }
 }
 
-// ---------- Form submission ----------
+// Form submission
 function setupForm() {
   const form = document.getElementById("entryForm");
   if (!form) return;
@@ -255,7 +236,7 @@ function setupForm() {
       return;
     }
 
-    const { error } = await supabase.from("overtime_entries").insert([{ id: parseInt(id, 10), name, date, notes }]);
+    const { error } = await supabase.from(TABLE_NAME).insert([{ id: parseInt(id, 10), name, date, notes }]);
     if (error) {
       console.error("Insert error:", error);
       alert("Failed to add entry: " + (error.message || ""));
@@ -266,7 +247,7 @@ function setupForm() {
   });
 }
 
-// ---------- Search ----------
+// Search and sorting
 function setupSearch() {
   const searchInput = document.getElementById("search");
   if (!searchInput) return;
@@ -281,7 +262,6 @@ function setupSearch() {
   });
 }
 
-// ---------- Sorting ----------
 function setupSorting() {
   const nameHeader = document.getElementById("sortName");
   const dateHeader = document.getElementById("sortDate");
@@ -322,18 +302,17 @@ function updateSortIndicators() {
   if (dateHeader) dateHeader.textContent = `Date ${sortDirection.date === "asc" ? "▲" : "▼"}`;
 }
 
-// ---------- Realtime ----------
+// Realtime
 function setupRealtime() {
   supabase
     .channel("overtime")
-    .on("postgres_changes", { event: "*", schema: "public", table: "overtime_entries" }, (payload) => {
-      console.log("Realtime change:", payload);
+    .on("postgres_changes", { event: "*", schema: "public", table: "overtime_entries" }, () => {
       loadEntries();
     })
     .subscribe();
 }
 
-// ---------- Init ----------
+// Init
 async function init() {
   setupForm();
   setupSearch();
